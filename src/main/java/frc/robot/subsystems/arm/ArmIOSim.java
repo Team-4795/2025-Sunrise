@@ -1,13 +1,24 @@
 package frc.robot.subsystems.arm;
 
+import edu.wpi.first.math.controller.ArmFeedforward;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
+import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 
 public class ArmIOSim implements ArmIO{
 
     public double volts = 0.0;
+
+    private ArmFeedforward ffmodel = new ArmFeedforward(0.001,1.3, 1);
+    private PIDController pid = new PIDController(1, 0, 0);
+    private final TrapezoidProfile.Constraints constraints = new TrapezoidProfile.Constraints(3, 10);
+    private final TrapezoidProfile profile = new TrapezoidProfile(constraints);
+    private TrapezoidProfile.State goal = new TrapezoidProfile.State(0, 0);
+    private TrapezoidProfile.State setpoint = new TrapezoidProfile.State(0, 0);
+
 
     private SingleJointedArmSim sim =
       new SingleJointedArmSim(LinearSystemId.createSingleJointedArmSystem(DCMotor.getCIM(1), 0.004, 1), DCMotor.getCIM(1),
@@ -23,11 +34,26 @@ public class ArmIOSim implements ArmIO{
         inputs.voltage = volts;
         inputs.velocity = sim.getVelocityRadPerSec();
         inputs.position = sim.getAngleRads();
+        sim.update(0.02);
     }
 
     @Override
     public void setVoltage(double volts) {
         sim.setInputVoltage(volts);
         this.volts = volts;
+    }
+
+    @Override
+    public void updateMotionProfile() {
+        setpoint = profile.calculate(0.02, setpoint, goal);
+        setVoltage(ffmodel.calculate(sim.getAngleRads(), sim.getVelocityRadPerSec()) + pid.calculate(sim.getAngleRads(), setpoint.position));
+    }
+
+    @Override
+    public void setGoal(double position) {
+        if (position != goal.position) {
+            setpoint = new TrapezoidProfile.State(sim.getAngleRads(), sim.getVelocityRadPerSec());
+            goal = new TrapezoidProfile.State(position, 0);
+        }
     }
 }

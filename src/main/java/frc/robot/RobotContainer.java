@@ -149,6 +149,8 @@ public class RobotContainer {
             Commands.startEnd(
                 () -> flywheel.runVelocity(flywheelSpeedInput.get()), flywheel::stop, flywheel));
 
+    controller.rightTrigger().whileTrue(Commands.startEnd(() -> arm.setVoltage(1), () -> arm.setVoltage(0), arm));
+
   }
 
   /**

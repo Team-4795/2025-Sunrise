@@ -14,5 +14,9 @@ public interface ArmIO {
        }
     public default void setVoltage(double volts) {
         }
+    public default void updateMotionProfile() {
+    }
+    public default void setGoal(double position) {
+    }
 }
 
