@@ -13,27 +13,37 @@ public class ArmIOSim implements ArmIO{
     public double volts = 0.0;
 
     private ArmFeedforward ffmodel = new ArmFeedforward(0.001,1.3, 1);
-    private PIDController pid = new PIDController(1, 0, 0);
+    private PIDController pid = new PIDController(100, 0, 2);
     private final TrapezoidProfile.Constraints constraints = new TrapezoidProfile.Constraints(3, 10);
     private final TrapezoidProfile profile = new TrapezoidProfile(constraints);
     private TrapezoidProfile.State goal = new TrapezoidProfile.State(0, 0);
     private TrapezoidProfile.State setpoint = new TrapezoidProfile.State(0, 0);
 
+    private double pidVolts;
+    private double ffVolts;
 
     private SingleJointedArmSim sim =
-      new SingleJointedArmSim(LinearSystemId.createSingleJointedArmSystem(DCMotor.getCIM(1), 0.004, 1), DCMotor.getCIM(1),
-    1,
-    0.5,
-    Units.degreesToRadians(-100),
-    Units.degreesToRadians(90),
-    true, 0);
+      new SingleJointedArmSim(
+        LinearSystemId.createSingleJointedArmSystem(
+        DCMotor.getCIM(2), 
+        2.09670337984, 72), 
+        DCMotor.getCIM(2),
+        72,
+        0.5,
+        Units.degreesToRadians(-100),
+        Units.degreesToRadians(90),
+        true, 0);
 
     @Override
     public void updateInputs(ArmIOInputs inputs) {
-        sim.update(0.02);
         inputs.voltage = volts;
         inputs.velocity = sim.getVelocityRadPerSec();
         inputs.position = sim.getAngleRads();
+        inputs.goal = goal.position;
+        inputs.setpoint = setpoint.position;
+        inputs.ffVolts = ffVolts;
+        inputs.pidVolts = pidVolts;
+
         sim.update(0.02);
     }
 
@@ -46,7 +56,9 @@ public class ArmIOSim implements ArmIO{
     @Override
     public void updateMotionProfile() {
         setpoint = profile.calculate(0.02, setpoint, goal);
-        setVoltage(ffmodel.calculate(sim.getAngleRads(), sim.getVelocityRadPerSec()) + pid.calculate(sim.getAngleRads(), setpoint.position));
+        pidVolts = pid.calculate(sim.getAngleRads(), setpoint.position);
+        ffVolts = ffmodel.calculate(sim.getAngleRads(), setpoint.velocity);
+        setVoltage(ffVolts + pidVolts);
     }
 
     @Override
